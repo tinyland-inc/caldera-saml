@@ -17,13 +17,16 @@ class SamlLoginHandler(LoginHandlerInterface):
         self.log = logging.getLogger('saml_login_handler')
 
     async def handle_login(self, request, **kwargs):
-        """Redirects login request to SAML login page. If username/password were included in the request, then
-        the default login handler mechanism will be used.
+        """Redirects login request to the SAML IdP unless the requester supplied non-empty
+        username AND password fields, in which case the default login handler is used.
+
+        Caldera v5's login form POSTs empty ``username=&password=`` fields on initial page
+        load, so we must check truthiness rather than key presence (mitre/saml#9). This
+        mirrors the semantic Caldera's DefaultLoginHandler already uses
+        (app/service/login_handlers/default.py).
         """
-        # Only handle login if username and password are not included in the request. If username and password
-        # are included, then this is a standard login request and should not redirect to SAML.
         data = await request.post()
-        if 'username' not in data and 'password' not in data:
+        if not data.get('username') or not data.get('password'):
             self.log.debug('Handling SAML login')
             await self.handle_login_redirect(request)
         else:
