@@ -1,2 +1,6 @@
-xmlsec==1.3.9
+# xmlsec wheels prior to 1.3.13.post0 fail to compile against
+# libxmlsec1-dev >= 1.3.0 (debian's current package): the build references
+# xmlSecXkmsNs which was removed upstream. Pin to a version that supports
+# the modern xmlsec1 ABI.
+xmlsec>=1.3.14
 python3-saml==1.10.1
