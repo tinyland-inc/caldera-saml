@@ -82,14 +82,49 @@ class SamlService(BaseService):
         errors = saml_auth.get_errors()
         if errors:
             combined_msg = ', '.join(errors)
-            raise Exception('Error when processing SAML response: %s' % combined_msg)
+            try:
+                reason = saml_auth.get_last_error_reason() or '(no reason)'
+            except Exception:
+                reason = '(unavailable)'
+            raise Exception(
+                'Error when processing SAML response: %s | reason=%s'
+                % (combined_msg, reason)
+            )
 
     @staticmethod
     async def _prepare_auth_parameter(request):
+        # Honor reverse-proxy headers when present so python3-saml's
+        # current_url computation matches the IdP's Destination. Without
+        # this, deployments behind a TLS-terminating proxy (ingress-nginx,
+        # AWS ALB, etc.) see http://host/saml on the SP side while the IdP
+        # signs Destination=https://host/saml, and validation fails with
+        # 'invalid_response'.
+        forwarded_proto = (
+            request.headers.get('X-Forwarded-Proto')
+            or request.headers.get('X-Forwarded-Protocol')
+            or request.url.scheme
+        )
+        forwarded_host = (
+            request.headers.get('X-Forwarded-Host')
+            or request.headers.get('Host')
+            or request.url.host
+        )
+        forwarded_port = request.headers.get('X-Forwarded-Port')
+        if forwarded_port:
+            try:
+                server_port = int(forwarded_port)
+            except (TypeError, ValueError):
+                server_port = request.url.port
+        else:
+            server_port = request.url.port
+        if not server_port:
+            server_port = 443 if forwarded_proto == 'https' else 80
+
         ret_parameters = {
-            'http_host': request.url.host,
+            'https': 'on' if forwarded_proto == 'https' else 'off',
+            'http_host': forwarded_host,
             'script_name': request.url.path,
-            'server_port': request.url.port,
+            'server_port': server_port,
             'get_data': request.url.query.copy(),
             'post_data': (await request.post()).copy(),
         }
