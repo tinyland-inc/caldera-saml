@@ -136,6 +136,27 @@ async def test_explicit_login_creds(aiohttp_client, setup_saml):
     assert 'API_SESSION' in resp.cookies
 
 
+async def test_v5_empty_creds_redirect_to_saml(aiohttp_client, setup_saml):
+    """Caldera v5 regression test (mitre/saml#9).
+
+    v5's login form POSTs empty ``username=&password=`` fields on initial page
+    load. The legacy key-presence check (``'username' not in data``) treated
+    these as a credential submission and fell through to the default handler,
+    so the user was never redirected to the IdP. The truthy check
+    (``not data.get('username')``) correctly identifies the empty values as
+    "no credentials provided" and hands off to the SAML SSO redirect.
+    """
+    resp = await aiohttp_client.post(
+        '/enter', allow_redirects=False, data=dict(username='', password='')
+    )
+    assert resp.status == HTTPStatus.FOUND, \
+        'v5 empty-creds POST must redirect (not fall through to default handler that returns to /)'
+    assert resp.headers.get('Location').startswith(
+        'http://idp.example.com/SSOService.php?SAMLRequest='
+    ), 'v5 empty-creds POST must redirect to SAML IdP, not fall through to default handler'
+    assert 'API_SESSION' not in resp.cookies
+
+
 async def test_reject_unsigned_saml_login(aiohttp_client, setup_saml, generate_saml_post_data):
     resp = await aiohttp_client.post('/saml', allow_redirects=False,
                                      data=generate_saml_post_data(UNSIGNED_RESPONSE_B64))
