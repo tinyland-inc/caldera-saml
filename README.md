@@ -1,5 +1,35 @@
 # MITRE Caldera Plugin: SAML
 
+## Tinyland Fork Notes
+
+This is `tinyland-inc/caldera-saml`, a fork of [`mitre/saml`](https://github.com/mitre/saml)
+tracking `v5-compat`-line changes needed for our on-prem Caldera SAML IdP work
+(Tinyland `TIN-957` / `TIN-966`).
+
+### Tag-bump cadence
+
+- Tags follow `vX.Y.Z-tinyland.N` (e.g. `v5.0.0-tinyland.0`), where `X.Y.Z` is
+  the upstream `mitre/saml` compatibility line this fork tracks and `N`
+  increments for Tinyland-only fork revisions against that same upstream
+  line (config/behavior fixes, dependency pin bumps, CI changes — anything
+  that doesn't change which upstream `saml` version we're compatible with).
+- **Cut a new tag only on a green CI run of the branch being tagged.** A tag
+  on a red or never-run CI state is a pin the rest of the fleet inherits
+  blind — see `TIN-966`. `master` and `v5-compat` both carry `security.yml`
+  and `testing.yml` workflows; either one being un-triggered for a branch
+  (for example, a fork whose Actions workflows have never been through
+  GitHub's one-time fork-consent enablement) blocks every tag on that
+  branch until that's resolved, not just the current one.
+- When upstream ships a new compatibility-breaking release, branch a new
+  `vX-compat` line from it (mirroring `v5-compat`'s origin), re-establish
+  green CI on that branch first, then tag `vX.Y.Z-tinyland.0` — never bump
+  the upstream `X.Y.Z` line on top of an existing tag's `-tinyland.N` fork
+  suffix.
+- After cutting a tag, update the pin recorded in `docs/plan-onprem-saml.md`
+  in the Tinyland monorepo that documents on-prem SAML rollout, so
+  consumers of this submodule pin the exact tag rather than a floating
+  branch ref.
+
 ## Overview
 `saml` is a Caldera plugin that provides SAML authentication for Caldera by establishing Caldera as
 a SAML Service Provider (SP). To use this plugin, users will need to have Caldera configured as an application
